@@ -2,7 +2,7 @@
 name: acceptance-reviewer
 description: Nimmt fertige Arbeit ab und prüft sie gegen die Anforderungen. Einsetzen, nachdem ein Feature umgesetzt und getestet wurde, um Qualität, Vollständigkeit und Erfüllung der Akzeptanzkriterien zu bewerten, bevor es als fertig gilt.
 tools: Read, Glob, Grep, Bash
-model: sonnet
+model: opus
 color: purple
 ---
 

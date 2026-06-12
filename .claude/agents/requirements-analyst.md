@@ -2,7 +2,7 @@
 name: requirements-analyst
 description: Klärt und schärft Anforderungen, bevor Code geschrieben wird. Proaktiv einsetzen, wenn ein neues Feature oder eine Aufgabe vage beschrieben ist, um daraus eine klare Spezifikation mit Akzeptanzkriterien zu machen.
 tools: Read, Glob, Grep, WebSearch, WebFetch, Write
-model: sonnet
+model: opus
 color: blue
 ---
 
