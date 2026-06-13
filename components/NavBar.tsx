@@ -49,9 +49,14 @@ export function NavBar({ session }: NavBarProps) {
             Auswertung
           </Link>
           {session.role === "ADMIN" && (
-            <Link href="/admin/users" className={linkClass("/admin")}>
-              Nutzer
-            </Link>
+            <>
+              <Link href="/admin/bookings" className={linkClass("/admin/bookings")}>
+                Queue
+              </Link>
+              <Link href="/admin/users" className={linkClass("/admin/users")}>
+                Nutzer
+              </Link>
+            </>
           )}
         </nav>
 

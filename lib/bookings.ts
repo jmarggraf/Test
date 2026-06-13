@@ -332,6 +332,150 @@ export async function cancelBooking(
 }
 
 // ---------------------------------------------------------------------------
+// Confirm booking (FR-20..FR-23, AK-12, AK-13, BR-9, BR-10)
+// ---------------------------------------------------------------------------
+
+/**
+ * Confirms a PENDING booking (Admin only).
+ *
+ * - Defensive role-check in addition to the requireAdmin() call in the Action
+ *   layer (AK-14, defense in depth).
+ * - Only PENDING bookings may be confirmed (FR-23).
+ * - Re-runs conflict check against CONFIRMED bookings inside a Serializable
+ *   transaction to prevent race-condition double-confirmations (FR-22, BR-10).
+ * - Sets status=CONFIRMED, decidedById, decidedAt (AK-12).
+ * - Admin may confirm their own booking (BR-9).
+ */
+export async function confirmBooking(
+  bookingId: string,
+  session: SessionPayload
+): Promise<{ success: true; bookingId: string } | BookingError> {
+  // Defensive admin guard (AK-14)
+  if (session.role !== Role.ADMIN) {
+    return { success: false, error: "Nur Administratoren können Buchungen bestätigen." };
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const booking = await tx.booking.findUnique({
+        where: { id: bookingId },
+        select: { id: true, status: true, startDate: true, endDate: true },
+      });
+
+      if (!booking) {
+        throw new NotFoundError("Buchung nicht gefunden.");
+      }
+
+      // Only PENDING may be confirmed (FR-23)
+      if (booking.status !== BookingStatus.PENDING) {
+        throw new ForbiddenError(
+          "Nur Buchungen im Status PENDING können bestätigt werden."
+        );
+      }
+
+      // Re-check for conflicts with CONFIRMED bookings (FR-22, BR-10)
+      const confirmedBookings = await tx.booking.findMany({
+        where: {
+          status: BookingStatus.CONFIRMED,
+          id: { not: bookingId },
+        },
+        select: { id: true, startDate: true, endDate: true },
+      });
+
+      const conflict = findConflict(
+        { startDate: booking.startDate, endDate: booking.endDate },
+        confirmedBookings
+      );
+
+      if (conflict) {
+        throw new ConflictError(
+          "Dieser Zeitraum überschneidet sich mit einer bereits bestätigten Buchung. Die Bestätigung ist nicht möglich."
+        );
+      }
+
+      await tx.booking.update({
+        where: { id: bookingId },
+        data: {
+          status: BookingStatus.CONFIRMED,
+          decidedById: session.userId,
+          decidedAt: new Date(),
+        },
+      });
+    }, {
+      // BR-10: Serializable prevents two concurrent confirmations from both
+      // passing the conflict check and producing overlapping CONFIRMED bookings.
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+    });
+
+    return { success: true, bookingId };
+  } catch (err) {
+    if (err instanceof ConflictError || err instanceof ForbiddenError || err instanceof NotFoundError) {
+      return { success: false, error: err.message };
+    }
+    console.error("[confirmBooking]", err);
+    return { success: false, error: "Fehler beim Bestätigen der Buchung. Bitte erneut versuchen." };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Reject booking (FR-20..FR-23, AK-14)
+// ---------------------------------------------------------------------------
+
+/**
+ * Rejects a PENDING booking (Admin only).
+ *
+ * - Defensive role-check (AK-14).
+ * - Only PENDING bookings may be rejected (FR-23).
+ * - Sets status=REJECTED, decidedById, decidedAt.
+ */
+export async function rejectBooking(
+  bookingId: string,
+  session: SessionPayload
+): Promise<{ success: true; bookingId: string } | BookingError> {
+  // Defensive admin guard (AK-14)
+  if (session.role !== Role.ADMIN) {
+    return { success: false, error: "Nur Administratoren können Buchungen ablehnen." };
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const booking = await tx.booking.findUnique({
+        where: { id: bookingId },
+        select: { id: true, status: true },
+      });
+
+      if (!booking) {
+        throw new NotFoundError("Buchung nicht gefunden.");
+      }
+
+      // Only PENDING may be rejected (FR-23)
+      if (booking.status !== BookingStatus.PENDING) {
+        throw new ForbiddenError(
+          "Nur Buchungen im Status PENDING können abgelehnt werden."
+        );
+      }
+
+      await tx.booking.update({
+        where: { id: bookingId },
+        data: {
+          status: BookingStatus.REJECTED,
+          decidedById: session.userId,
+          decidedAt: new Date(),
+        },
+      });
+    });
+
+    return { success: true, bookingId };
+  } catch (err) {
+    if (err instanceof ForbiddenError || err instanceof NotFoundError) {
+      return { success: false, error: err.message };
+    }
+    console.error("[rejectBooking]", err);
+    return { success: false, error: "Fehler beim Ablehnen der Buchung. Bitte erneut versuchen." };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Internal error types (not exported — only used within transactions)
 // ---------------------------------------------------------------------------
 
