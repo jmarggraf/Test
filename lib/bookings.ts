@@ -8,7 +8,7 @@
  * BR-2, BR-6, BR-7, BR-10).
  */
 
-import { BookingStatus, Role } from "@prisma/client";
+import { BookingStatus, Role, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import {
   findConflict,
@@ -136,6 +136,10 @@ export async function createBooking(
       });
 
       return { bookingId: booking.id, hasPendingConflicts: pendingConflicts.length > 0 };
+    }, {
+      // BR-10: Serializable prevents two concurrent requests from both passing
+      // the CONFIRMED-conflict check and producing an overlapping confirmed booking.
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     });
 
     return { success: true, ...result };
@@ -243,6 +247,10 @@ export async function updateBooking(
       });
 
       return { bookingId, hasPendingConflicts: pendingConflicts.length > 0 };
+    }, {
+      // BR-10: see createBooking — Serializable guards against concurrent
+      // overlapping confirmations.
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     });
 
     return { success: true, ...result };

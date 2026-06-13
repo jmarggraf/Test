@@ -16,7 +16,10 @@ const PUBLIC_PATHS = ["/login"];
 const ADMIN_PATHS = ["/admin"];
 
 function getJwtSecret(): Uint8Array {
-  const secret = process.env.JWT_SECRET ?? "change-me-in-production-use-a-long-random-string";
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET environment variable is not set");
+  }
   return new TextEncoder().encode(secret);
 }
 

@@ -15,7 +15,10 @@ export interface LoginState {
 
 /**
  * Authenticates a user with email + password.
- * Only ACTIVE users can log in (FR-1); INVITED and DISABLED users are rejected.
+ *
+ * DISABLED users are always rejected (FR-5). INVITED users may log in with their
+ * temporary password but carry `mustChangePassword = true` and are redirected to
+ * /change-password, which activates them to ACTIVE (FR-1, FR-4).
  */
 export async function loginAction(
   _prevState: LoginState,
@@ -39,13 +42,13 @@ export async function loginAction(
     return { error: genericError };
   }
 
-  // FR-1 / FR-5: only ACTIVE users may log in
+  // FR-5: deactivated users may never log in.
   if (user.status === UserStatus.DISABLED) {
     return { error: "Ihr Konto wurde deaktiviert. Bitte wenden Sie sich an den Administrator." };
   }
-  if (user.status === UserStatus.INVITED) {
-    return { error: "Ihr Konto ist noch nicht aktiviert. Bitte verwenden Sie das temporäre Passwort, um sich einzuloggen." };
-  }
+  // INVITED users are allowed through with their temporary password; the
+  // mustChangePassword flag forces them to /change-password (where they are
+  // activated to ACTIVE). See redirect below.
 
   const passwordValid = await bcrypt.compare(password, user.passwordHash);
   if (!passwordValid) {
