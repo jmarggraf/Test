@@ -21,6 +21,9 @@ export interface BookingActionState {
   warning?: string;
 }
 
+/** [11] Plausibility upper bound for the guest count of a single booking. */
+const MAX_GUEST_COUNT = 20;
+
 // ---------------------------------------------------------------------------
 // Create booking (FR-13, FR-14, FR-15)
 // ---------------------------------------------------------------------------
@@ -53,8 +56,11 @@ export async function createBookingAction(
       ? parseInt(guestCountRaw, 10)
       : null;
 
-  if (guestCount !== null && (isNaN(guestCount) || guestCount < 1)) {
-    return { error: "Personenanzahl muss eine positive Zahl sein." };
+  if (
+    guestCount !== null &&
+    (isNaN(guestCount) || guestCount < 1 || guestCount > MAX_GUEST_COUNT)
+  ) {
+    return { error: `Personenanzahl muss zwischen 1 und ${MAX_GUEST_COUNT} liegen.` };
   }
 
   const isAdmin = session.role === "ADMIN";
@@ -111,8 +117,11 @@ export async function updateBookingAction(
       ? parseInt(guestCountRaw, 10)
       : null;
 
-  if (guestCount !== null && (isNaN(guestCount) || guestCount < 1)) {
-    return { error: "Personenanzahl muss eine positive Zahl sein." };
+  if (
+    guestCount !== null &&
+    (isNaN(guestCount) || guestCount < 1 || guestCount > MAX_GUEST_COUNT)
+  ) {
+    return { error: `Personenanzahl muss zwischen 1 und ${MAX_GUEST_COUNT} liegen.` };
   }
 
   const result = await updateBooking(

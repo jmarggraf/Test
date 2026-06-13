@@ -164,6 +164,11 @@ export async function createBooking(
  *  - Admins may edit any booking (FR-19).
  *
  * Re-runs conflict check against CONFIRMED bookings (FR-16, BR-10).
+ *
+ * [7] Deliberate product decision: when an admin edits an already-CONFIRMED
+ * booking, its status stays CONFIRMED (no automatic reset to PENDING). The
+ * conflict check against other CONFIRMED bookings still runs; the admin carries
+ * responsibility for the moved dates.
  */
 export async function updateBooking(
   bookingId: string,

@@ -114,6 +114,22 @@ export async function toggleUserStatusAction(
     return { error: "Ungültiger Status." };
   }
 
+  const target = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { status: true },
+  });
+  if (!target) {
+    return { error: "Nutzer nicht gefunden." };
+  }
+
+  // [10] An INVITED user is activated only by completing their first password
+  // change — not by toggling the status directly. (Disabling an invite is fine.)
+  if (target.status === UserStatus.INVITED && targetStatus === "ACTIVE") {
+    return {
+      error: "Eingeladene Nutzer werden erst durch ihre erste Passwortänderung aktiviert.",
+    };
+  }
+
   await prisma.user.update({
     where: { id: userId },
     data: { status: targetStatus as UserStatus },

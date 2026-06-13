@@ -8,12 +8,13 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { Role, UserStatus } from "@prisma/client";
+import { prisma } from "@/lib/db";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const COOKIE_NAME = "ferienhaus_session";
+export const COOKIE_NAME = "ferienhaus_session";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 7; // 7 days in seconds
 
 function getJwtSecret(): Uint8Array {
@@ -108,10 +109,24 @@ export async function requireUser(
   if (!session) {
     redirect("/login");
   }
+  // [6] Re-validate against the current DB state so a user who was disabled
+  // after logging in loses access immediately instead of keeping a valid token
+  // for up to 7 days. DISABLED users are sent to /logout (a Route Handler that
+  // clears the cookie), avoiding a redirect loop with the middleware rule that
+  // bounces authenticated users away from /login. INVITED users are allowed
+  // through so they can reach /change-password and activate themselves.
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { status: true, role: true },
+  });
+  if (!user || user.status === UserStatus.DISABLED) {
+    redirect("/logout?reason=disabled");
+  }
   if (session.mustChangePassword && !options.allowMustChangePassword) {
     redirect("/change-password");
   }
-  return session;
+  // Use the current role from the DB rather than the (possibly stale) token.
+  return { ...session, role: user.role };
 }
 
 /**

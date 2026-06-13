@@ -15,7 +15,7 @@ export const metadata = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string }>;
+  searchParams: Promise<{ from?: string; reason?: string }>;
 }) {
   // Already logged in → redirect to dashboard or the originally requested path
   const session = await getSession();
@@ -27,6 +27,8 @@ export default async function LoginPage({
     redirect(params.from ?? "/");
   }
 
+  const { reason } = await searchParams;
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-sm">
@@ -37,6 +39,12 @@ export default async function LoginPage({
           <p className="text-sm text-gray-500 mb-6">
             Bitte melden Sie sich an.
           </p>
+          {reason === "disabled" && (
+            <p className="mb-4 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
+              Ihr Konto wurde deaktiviert. Bitte wenden Sie sich an den
+              Administrator.
+            </p>
+          )}
           <LoginForm />
         </div>
       </div>

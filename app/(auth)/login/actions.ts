@@ -8,6 +8,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { setSessionCookie, clearSessionCookie } from "@/lib/auth";
 import { UserStatus } from "@prisma/client";
+import { isRateLimited, registerFailure, clearAttempts } from "@/lib/rateLimit";
 
 export interface LoginState {
   error?: string;
@@ -31,6 +32,14 @@ export async function loginAction(
     return { error: "E-Mail und Passwort sind erforderlich." };
   }
 
+  // [15] Throttle repeated failed attempts against a given account.
+  if (isRateLimited(email)) {
+    return {
+      error:
+        "Zu viele Fehlversuche. Bitte warten Sie einige Minuten und versuchen Sie es erneut.",
+    };
+  }
+
   // Look up user
   const user = await prisma.user.findUnique({ where: { email } });
 
@@ -39,6 +48,7 @@ export async function loginAction(
   const genericError = "Ungültige E-Mail-Adresse oder falsches Passwort.";
 
   if (!user || !user.passwordHash) {
+    registerFailure(email);
     return { error: genericError };
   }
 
@@ -52,8 +62,12 @@ export async function loginAction(
 
   const passwordValid = await bcrypt.compare(password, user.passwordHash);
   if (!passwordValid) {
+    registerFailure(email);
     return { error: genericError };
   }
+
+  // Successful login resets the failed-attempt counter.
+  clearAttempts(email);
 
   await setSessionCookie({
     userId: user.id,

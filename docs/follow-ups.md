@@ -13,22 +13,23 @@ für den lokalen Betrieb) und hier dokumentiert.
 - **[1] Race Condition (BR-10)** — `createBooking`/`updateBooking` laufen jetzt mit
   `Serializable`-Isolation, damit keine zwei überlappenden Bestätigungen entstehen.
 
-## Offen / Follow-up
-- **[6] Deaktivierte Session lebt weiter (🟡):** Ein nachträglich auf `DISABLED`
-  gesetzter Nutzer behält seinen gültigen Token bis zu 7 Tage. Ein naiver
-  DB-Status-Check in `requireUser` erzeugt mit der Middleware-Regel „eingeloggte
-  von `/login` wegleiten" eine Redirect-Schleife. Saubere Lösung: dedizierte
-  `/account-disabled`-Seite (public, mit Logout) ODER kurze Token-Laufzeit mit
-  Sliding-Refresh ODER Status-Check in einer Node-Runtime-Middleware. Erst nötig
-  vor produktivem Deployment.
-- **[7] Admin-Edit einer CONFIRMED-Buchung (🟡):** Beim Verschieben einer bereits
-  bestätigten Buchung bleibt der Status `CONFIRMED` ohne erneute Prüfung.
-  Optionen: bei Datumsänderung auf `PENDING` zurücksetzen, oder bewusst so lassen
-  (Admin trägt Verantwortung). Vor Umsetzung mit Fachseite klären.
-- **[10] Status-Pfade Nutzer (🟡):** `toggleUserStatusAction` kann `INVITED`
-  direkt auf `ACTIVE` setzen. Nach Fix [3] unkritisch, aber Status-Übergänge
-  könnten expliziter validiert werden.
-- **[11] `guestCount`-Plausibilität (🟡):** Aktuell nur `>= 1` geprüft; eine
-  sinnvolle Obergrenze (z. B. Bettenzahl) wäre robuster.
-- **[15] Login-Rate-Limiting (🟢):** Kein Brute-Force-Schutz. Relevant erst bei
-  öffentlich erreichbarem Deployment.
+## Behoben (zweite Runde)
+- **[6] Deaktivierte Session lebt weiter** — `requireUser` prüft jetzt bei jeder
+  geschützten Anfrage den aktuellen DB-Status. Ein `DISABLED`-Nutzer wird über
+  `/logout` (Route Handler, der den Cookie löscht) ausgeloggt und sieht auf der
+  Login-Seite einen Hinweis. Loop-sicher, da der Cookie vor dem Rücksprung auf
+  `/login` gelöscht wird. `requireUser` nutzt außerdem die aktuelle Rolle aus der
+  DB (kein veralteter Rollen-Claim im Token).
+- **[7] Admin-Edit einer CONFIRMED-Buchung** — bewusste Entscheidung: Status
+  bleibt `CONFIRMED` (kein Auto-Reset auf `PENDING`). Konfliktprüfung gegen
+  andere CONFIRMED läuft weiter; der Admin trägt die Verantwortung. Dokumentiert
+  im Code (`lib/bookings.ts`, `updateBooking`).
+- **[10] Status-Pfade Nutzer** — `toggleUserStatusAction` aktiviert `INVITED`
+  nicht mehr direkt auf `ACTIVE` (nur über die erste Passwortänderung);
+  Deaktivieren einer Einladung bleibt möglich.
+- **[11] `guestCount`-Plausibilität** — Obergrenze `MAX_GUEST_COUNT = 20` in der
+  Buchungs-Action (Anlegen + Bearbeiten).
+- **[15] Login-Rate-Limiting** — einfacher In-Memory-Limiter (`lib/rateLimit.ts`,
+  5 Fehlversuche / 15 Min pro E-Mail). Hinweis: Zustand ist pro Prozess und
+  übersteht keinen Neustart / mehrere Instanzen — für ein verteiltes Deployment
+  später auf einen geteilten Speicher (z. B. Redis) umstellen.
