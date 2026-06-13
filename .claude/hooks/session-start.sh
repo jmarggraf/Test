@@ -21,6 +21,12 @@ if [ -f package.json ]; then
   echo "[session-start] package.json found -> npm install"
   npm install
 
+  # Generate the Prisma client if this project uses Prisma.
+  if [ -f prisma/schema.prisma ]; then
+    echo "[session-start] prisma/schema.prisma found -> npx prisma generate"
+    npx prisma generate
+  fi
+
 elif [ -f pyproject.toml ] || [ -f requirements.txt ]; then
   echo "[session-start] Python project found -> pip install"
   if [ -f requirements.txt ]; then

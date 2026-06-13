@@ -5,8 +5,25 @@ wird zu Beginn jeder Session gelesen und gibt Claude den nötigen Kontext.
 
 ## Projekt
 
-> _Platzhalter:_ Beschreibe hier kurz, was dieses Projekt tut, sobald der erste
-> Code existiert (Zweck, wichtigste Komponenten, Einstiegspunkte).
+**Ferienhaus-Kalender** – gemeinsame Buchungsapp für eine Erbengemeinschaft.
+Eine geschlossene Gruppe von Mitgliedern kann Aufenthalte im gemeinsamen
+Ferienhaus koordinieren: Buchungen anlegen, einen Admin-Bestätigungsworkflow
+durchlaufen und die Nutzungsverteilung per Analytics auswerten.
+
+**Stack:** Next.js 15 (App Router) · TypeScript · PostgreSQL via Prisma ·
+Tailwind CSS · Vitest
+
+**Einstiegspunkte:**
+- `app/layout.tsx` – Root-Layout
+- `app/(app)/` – authentifizierte App-Routen (Kalender, Analytics, Home)
+- `app/(auth)/login/` – Login (kein öffentliches Sign-up, FR-2)
+- `app/(auth)/change-password/` – Pflicht-Passwortänderung nach Erstanmeldung
+- `app/admin/users/` – Nutzerverwaltung (nur Admin)
+- `lib/auth.ts` – JWT-Session-Helfer (`getSession`, `requireUser`, `requireAdmin`)
+- `lib/availability.ts` – reine Konfliktprüfungs-Logik (BR-1)
+- `lib/db.ts` – Prisma-Client-Singleton
+- `middleware.ts` – Route-Guards (Auth + Admin-Check)
+- `prisma/schema.prisma` – Datenmodell (User, Booking, Enums)
 
 ## Setup & Dependencies
 
@@ -23,12 +40,64 @@ CLAUDE_CODE_REMOTE=true ./.claude/hooks/session-start.sh
 
 ## Tests & Linting
 
-> _TODO:_ Sobald ein Tech-Stack gewählt ist, hier die Befehle eintragen, z.B.:
-> - Tests: `npm test` / `pytest` / `cargo test` / `go test ./...`
-> - Linter: `eslint .` / `ruff check .` / `cargo clippy` / `go vet ./...`
->
-> Trage außerdem die Install-/Lint-/Test-Befehle in den SessionStart-Hook ein,
-> damit sie in jeder Web-Session verfügbar sind.
+```bash
+# Abhängigkeiten installieren
+npm install
+
+# Entwicklungsserver starten (http://localhost:3000)
+npm run dev
+
+# Produktions-Build prüfen
+npm run build
+
+# TypeScript-Typen prüfen (ohne Emit)
+npx tsc --noEmit
+
+# ESLint
+npm run lint
+
+# Unit-Tests ausführen (Vitest)
+npm test
+
+# Tests im Watch-Modus
+npm run test:watch
+```
+
+### Datenbank (lokale Postgres via Docker)
+
+```bash
+# Postgres starten
+docker compose up -d db
+
+# Prisma-Client generieren (nach Schema-Änderungen)
+npm run db:generate
+# oder: npx prisma generate
+
+# Initialmigration durchführen (benötigt laufende DB)
+npm run db:migrate
+
+# Migrations deployen (Produktion)
+npm run db:migrate:deploy
+
+# Seed: initialen Admin anlegen
+npm run db:seed
+
+# Schema validieren (ohne DB)
+npm run db:validate
+
+# Prisma Studio (DB-Browser)
+npm run db:studio
+```
+
+### Umgebungsvariablen
+
+Kopiere `.env.example` nach `.env` und passe die Werte an:
+
+```bash
+cp .env.example .env
+```
+
+Wichtige Variablen: `DATABASE_URL`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`.
 
 ## Agentic Workflow (Subagents)
 
