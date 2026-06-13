@@ -39,6 +39,13 @@ async function getSessionFromRequest(
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // /logout must always reach its Route Handler so the cookie gets cleared.
+  // Never redirect it (otherwise a disabled user whose token still carries
+  // mustChangePassword would loop between /logout and /change-password).
+  if (pathname === "/logout") {
+    return NextResponse.next();
+  }
+
   const isPublic = PUBLIC_PATHS.some(
     (p) => pathname === p || pathname.startsWith(p + "/")
   );
