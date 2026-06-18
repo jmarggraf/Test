@@ -1,0 +1,90 @@
+// Prisma schema for Ferienhaus-Kalender
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  DISABLED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  CANCELLED
+}
+
+// ---------------------------------------------------------------------------
+// User
+// ---------------------------------------------------------------------------
+
+model User {
+  id                String     @id @default(cuid())
+  email             String     @unique
+  name              String
+  role              Role       @default(MEMBER)
+  passwordHash      String?
+  mustChangePassword Boolean   @default(false)
+  status            UserStatus @default(INVITED)
+
+  /// who invited this user (self-referential, nullable)
+  invitedById String?
+  invitedBy   User?  @relation("InvitedBy", fields: [invitedById], references: [id])
+  invitees    User[] @relation("InvitedBy")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Bookings made by this user
+  bookings Booking[] @relation("BookingOwner")
+
+  /// Bookings this admin decided on
+  decidedBookings Booking[] @relation("BookingDecider")
+}
+
+// ---------------------------------------------------------------------------
+// Booking
+// ---------------------------------------------------------------------------
+
+model Booking {
+  id     String        @id @default(cuid())
+  userId String
+  user   User          @relation("BookingOwner", fields: [userId], references: [id])
+
+  /// Check-in day (inclusive)
+  startDate DateTime @db.Date
+  /// Check-out day (exclusive, half-open interval [startDate, endDate))
+  endDate   DateTime @db.Date
+
+  status BookingStatus @default(PENDING)
+
+  title      String?
+  guestCount Int?
+  note       String?
+
+  /// Admin who confirmed or rejected this booking
+  decidedById String?
+  decidedBy   User?   @relation("BookingDecider", fields: [decidedById], references: [id])
+  decidedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
